@@ -24,7 +24,7 @@ use embedded_graphics_core::draw_target::DrawTarget;
 use embedded_graphics_core::pixelcolor::Rgb565;
 use embedded_graphics_core::pixelcolor::RgbColor;
 use esp_hal::{
-    gpio::{Level, Output, OutputConfig},
+    gpio::{Level, Output, Input, InputConfig, OutputConfig},
 };
 
 #[panic_handler]
@@ -69,16 +69,23 @@ fn main() -> ! {
 
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 98768);
 
+    let config = OutputConfig::default();
+
+    let mosi = Output::new(peripherals.GPIO23, Level::Low, config);
+    let miso = Input::new(peripherals.GPIO19, InputConfig::default());
+    let sck = Output::new(peripherals.GPIO18, Level::Low, config);
+
     let mut spi = Spi::new(
         peripherals.SPI2,
         Config::default()
             .with_frequency(Rate::from_khz(100))
             .with_mode(Mode::_0),
-    ).unwrap();
+    ).unwrap()
+    .with_sck(sck)
+    .with_mosi(mosi)
+    .with_miso(miso);
 
     let mut delay = esp_hal::delay::Delay::new();
-
-    let config = OutputConfig::default();
 
     let dc = Output::new(peripherals.GPIO21, Level::Low, config);
     let cs = Output::new(peripherals.GPIO16, Level::Low, config);
