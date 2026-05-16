@@ -78,7 +78,7 @@ fn main() -> ! {
     let mut spi = Spi::new(
         peripherals.SPI2,
         Config::default()
-            .with_frequency(Rate::from_khz(100))
+            .with_frequency(Rate::from_khz(1000))
             .with_mode(Mode::_0),
     ).unwrap()
     .with_sck(sck)
@@ -105,9 +105,11 @@ fn main() -> ! {
     )
     .unwrap();
 
-    display.clear(Rgb565::RED).unwrap();
 
     loop {
+        display.clear(Rgb565::RED).unwrap();
+        display.clear(Rgb565::GREEN).unwrap();
+        display.clear(Rgb565::BLUE).unwrap();
         let delay_start = Instant::now();
         while delay_start.elapsed() < Duration::from_millis(500) {}
     }
