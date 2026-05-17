@@ -22,6 +22,7 @@ ili9341 = "0.6.0"
 embedded-hal-bus = "0.3.0"
 embedded-graphics-core = "0.4.1"
 
+display-interface = "0.5.0"
 
 # For fine tuning these settings, please refer to https://doc.rust-lang.org/cargo/reference/profiles.html
 [profile.dev]

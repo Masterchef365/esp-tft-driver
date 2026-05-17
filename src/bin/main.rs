@@ -7,25 +7,24 @@
 )]
 #![deny(clippy::large_stack_frames)]
 
-use esp_hal::clock::CpuClock;
-use esp_hal::main;
-use esp_hal::time::{Duration, Instant};
-use esp_hal::spi::{
-    Mode,
-    master::{Config, Spi},
-};
-use ili9341::Ili9341;
-use ili9341::Orientation;
-use esp_hal::time::Rate;
+use display_interface::WriteOnlyDataCommand;
 use display_interface_spi::SPIInterface;
-use esp_hal::gpio::Pin;
-use embedded_hal_bus::spi::ExclusiveDevice;
 use embedded_graphics_core::draw_target::DrawTarget;
 use embedded_graphics_core::pixelcolor::Rgb565;
 use embedded_graphics_core::pixelcolor::RgbColor;
-use esp_hal::{
-    gpio::{Level, Output, Input, InputConfig, OutputConfig},
+use embedded_hal_bus::spi::ExclusiveDevice;
+use esp_hal::clock::CpuClock;
+use esp_hal::gpio::Pin;
+use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig};
+use esp_hal::main;
+use esp_hal::spi::{
+    master::{Config, Spi},
+    Mode,
 };
+use esp_hal::time::Rate;
+use esp_hal::time::{Duration, Instant};
+use ili9341::Ili9341;
+use ili9341::Orientation;
 
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
@@ -78,9 +77,10 @@ fn main() -> ! {
     let mut spi = Spi::new(
         peripherals.SPI2,
         Config::default()
-            .with_frequency(Rate::from_khz(1000))
+            .with_frequency(Rate::from_khz(10000))
             .with_mode(Mode::_0),
-    ).unwrap()
+    )
+    .unwrap()
     .with_sck(sck)
     .with_mosi(mosi)
     .with_miso(miso);
@@ -106,13 +106,194 @@ fn main() -> ! {
     .unwrap();
 
 
+    display.clear(Rgb565::RED).unwrap();
+
+    let mut sim = Sim::new(Default::default());
     loop {
-        display.clear(Rgb565::RED).unwrap();
-        display.clear(Rgb565::GREEN).unwrap();
-        display.clear(Rgb565::BLUE).unwrap();
+        sim.front.draw(&mut display);
+        sim.step();
+
         let delay_start = Instant::now();
-        while delay_start.elapsed() < Duration::from_millis(500) {}
+        while delay_start.elapsed() < Duration::from_millis(1500) {}
     }
 
     // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.1.0/examples
+}
+
+const BUF_WIDTH: usize = 320;
+const BUF_HEIGHT: usize = 240;
+const BUF_WIDTH_BYTES: usize = BUF_WIDTH / 8;
+const BUF_SIZE_BYTES: usize = BUF_WIDTH_BYTES * BUF_HEIGHT;
+
+struct Sim {
+    front: Buffer,
+    back: Buffer,
+    rule: Rule,
+}
+
+struct Buffer {
+    bytes: [u8; BUF_SIZE_BYTES],
+}
+
+impl Sim {
+    pub fn new(rule: Rule) -> Self {
+        Self {
+            back: Buffer::zeros(),
+            front: Buffer::random(),
+            rule,
+        }
+    }
+
+    pub fn step(&mut self) {
+        for y in 0..BUF_HEIGHT as i16 {
+            for x in 0..BUF_WIDTH as i16 {
+                let mut neighbors: u8 = 0;
+
+                for yi in y - 1 ..= y + 1 {
+                    for xi in x - 1 ..= x + 1 {
+                        if (x, y) == (yi, xi) {
+                            continue;
+                        }
+
+                        if let Some(true) = self.front.read(xi, yi) {
+                            neighbors += 1;
+                        }
+                    }
+                }
+
+                let center = self.front.read(x, y).unwrap();
+                let next = self.rule.exec(neighbors, center);
+                self.back.write(x, y, next);
+            }
+        }
+
+        core::mem::swap(&mut self.front, &mut self.back);
+    }
+}
+
+impl Buffer {
+    fn zeros() -> Self {
+        Self {
+            bytes: [0; BUF_SIZE_BYTES],
+        }
+    }
+
+    fn random() -> Self {
+        let mut ret = Self::zeros();
+
+        let mut rng = esp_hal::rng::Rng::new();
+        rng.read(&mut ret.bytes);
+
+        ret
+    }
+
+    fn draw<I, R>(&self, mut display: &mut Ili9341<I, R>)
+    where
+        I: WriteOnlyDataCommand,
+    {
+        let iter = self
+            .bytes
+            .iter()
+            .map(|byte| {
+                (0..8).map(|i| {
+                    if extract_bit(*byte, i) {
+                        0x0000_u16
+                    } else {
+                        0xFFFF_u16
+                    }
+                })
+            })
+        .flatten();
+
+        display
+            .draw_raw_iter(0, 0, BUF_WIDTH as _, BUF_HEIGHT as _, iter)
+            .unwrap();
+    }
+
+    fn bounds(x: i16, y: i16) -> bool {
+        x >= 0 && y >= 0 && (x as usize) < BUF_WIDTH && (y as usize) < BUF_HEIGHT
+    }
+
+    /// Returns (byte, bit)
+    fn index(x: i16, y: i16) -> Option<(usize, u8)> {
+        Self::bounds(x, y).then(|| {
+            let idx = y as usize * BUF_WIDTH_BYTES + x as usize / 8;
+            let bit = (x % 8) as u8;
+            (idx, bit)
+        })
+    }
+
+    fn read(&self, x: i16, y: i16) -> Option<bool> {
+        let (idx, bit) = Self::index(x, y)?;
+        Some(extract_bit(self.bytes[idx], bit))
+    }
+
+    fn write(&mut self, x: i16, y: i16, value: bool) {
+        let (idx, bit) = Self::index(x, y).unwrap();
+        self.bytes[idx] = set_bit(self.bytes[idx], bit, value);
+    }
+
+
+}
+
+struct Rule {
+    b: u16,
+    s: u16,
+}
+
+fn pack_rule(indices: &[u16]) -> u16 {
+    let mut ret: u16 = 0;
+
+    for i in indices {
+        ret = set_bit_u16(ret, *i, true);
+    }
+
+    ret
+}
+
+impl Rule {
+    pub fn new(born: &[u16], survive: &[u16]) -> Self {
+        Self {
+            b: pack_rule(born),
+            s: pack_rule(survive),
+        }
+    }
+
+    pub fn exec(&self, neighbors: u8, center: bool) -> bool {
+        if center {
+            extract_bit_u16(self.s, neighbors as _)
+        } else {
+            extract_bit_u16(self.b, neighbors as _)
+        }
+    }
+}
+
+fn mask(bit: u8) -> u8 {
+    1 << bit
+}
+
+fn mask_u16(bit: u16) -> u16 {
+    1 << bit
+}
+
+fn extract_bit(byte: u8, bit: u8) -> bool {
+    (byte & mask(bit)) != 0
+}
+
+fn extract_bit_u16(byte: u16, bit: u16) -> bool {
+    (byte & mask_u16(bit)) != 0
+}
+
+fn set_bit(byte: u8, bit: u8, value: bool) -> u8 {
+    (byte & !mask(bit)) | ((value as u8) << bit)
+}
+
+fn set_bit_u16(byte: u16, bit: u16, value: bool) -> u16 {
+    (byte & !mask_u16(bit)) | ((value as u16) << bit)
+}
+
+impl Default for Rule {
+    fn default() -> Self {
+        Rule::new(&[3], &[2, 3])
+    }
 }

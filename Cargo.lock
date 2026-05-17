@@ -870,6 +870,7 @@ name = "my-first-esp-rust"
 version = "0.1.0"
 dependencies = [
  "critical-section",
+ "display-interface",
  "display-interface-spi",
  "embedded-graphics-core",
  "embedded-hal-bus",
