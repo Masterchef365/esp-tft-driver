@@ -27,6 +27,9 @@ use esp_hal::{
     gpio::{Level, Output, Input, InputConfig, OutputConfig},
 };
 
+use euc::{Buffer2d, Empty, Pipeline, TriangleList};
+use vek::Rgba;
+
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
     loop {}
@@ -78,7 +81,7 @@ fn main() -> ! {
     let mut spi = Spi::new(
         peripherals.SPI2,
         Config::default()
-            .with_frequency(Rate::from_khz(1000))
+            .with_frequency(Rate::from_khz(10000))
             .with_mode(Mode::_0),
     ).unwrap()
     .with_sck(sck)
@@ -105,14 +108,56 @@ fn main() -> ! {
     )
     .unwrap();
 
+    display.clear(Rgb565::RED).unwrap();
+
+     let [w, h] = [320, 240];
+    let mut color = Buffer2d::fill([w, h], 0);
+
+    Triangle.render(
+        &[
+            ([-1.0, -1.0], Rgba::red()),
+            ([1.0, -1.0], Rgba::green()),
+            ([0.0, 1.0], Rgba::blue()),
+        ],
+        &mut color,
+        &mut Empty::default(),
+    );
+
+    display.draw_raw_iter(0, 0, 320, 240, color.raw().iter().map(|color| cvt_color(*color)));
+
 
     loop {
-        display.clear(Rgb565::RED).unwrap();
-        display.clear(Rgb565::GREEN).unwrap();
-        display.clear(Rgb565::BLUE).unwrap();
         let delay_start = Instant::now();
         while delay_start.elapsed() < Duration::from_millis(500) {}
     }
+}
 
-    // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.1.0/examples
+struct Triangle;
+
+impl<'r> Pipeline<'r> for Triangle {
+    type Vertex = ([f32; 2], Rgba<f32>);
+    type VertexData = Rgba<f32>;
+    type Primitives = TriangleList;
+    type Fragment = Rgba<f32>;
+    type Pixel = u32;
+
+    fn vertex(&self, (pos, col): &Self::Vertex) -> ([f32; 4], Self::VertexData) {
+        ([pos[0], pos[1], 0.0, 1.0], *col)
+    }
+
+    fn fragment(&self, col: Self::VertexData) -> Self::Fragment {
+        col
+    }
+
+    fn blend(&self, _: Self::Pixel, col: Self::Fragment) -> Self::Pixel {
+        u32::from_le_bytes(col.map(|e| (e * 255.0) as u8).into_array())
+    }
+}
+
+fn cvt_color(v: u32) -> u16 {
+    let [r, g, b, a] = v.to_be_bytes().map(|s| s as u16);
+    let r = r >> 3;
+    let g = g >> 2;
+    let b = b >> 3;
+    (r << (5+6)) | (g << 5) | b
 }
