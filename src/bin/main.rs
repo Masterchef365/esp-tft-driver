@@ -108,13 +108,32 @@ fn main() -> ! {
 
     display.clear(Rgb565::RED).unwrap();
 
-    let mut sim = Sim::new(Default::default());
+    let mut rng = esp_hal::rng::Rng::new();
+
+    let rule = if rng.random() & 1 == 0 {
+        Default::default()
+    } else {
+        let mut b = (rng.random() & 0b111111111) as u16;
+        let mut s = (rng.random() & 0b111111111) as u16;
+
+        b >>= rng.random() % 9;
+        s >>= rng.random() % 9;
+
+        Rule {
+            b, s
+        }
+    };
+
+    //let mut sim = Sim::new(Default::default());
+
+    let mut sim = Sim::new(rule);
+
     loop {
-        sim.front.draw(&mut display);
+        sim.draw(&mut display);
         sim.step();
 
-        let delay_start = Instant::now();
-        while delay_start.elapsed() < Duration::from_millis(1500) {}
+        //let delay_start = Instant::now();
+        //while delay_start.elapsed() < Duration::from_millis(1500) {}
     }
 
     // for inspiration have a look at the examples at https://github.com/esp-rs/esp-hal/tree/esp-hal-v1.1.0/examples
@@ -151,7 +170,7 @@ impl Sim {
 
                 for yi in y - 1 ..= y + 1 {
                     for xi in x - 1 ..= x + 1 {
-                        if (x, y) == (yi, xi) {
+                        if (x, y) == (xi, yi) {
                             continue;
                         }
 
@@ -163,11 +182,44 @@ impl Sim {
 
                 let center = self.front.read(x, y).unwrap();
                 let next = self.rule.exec(neighbors, center);
+
                 self.back.write(x, y, next);
             }
         }
 
         core::mem::swap(&mut self.front, &mut self.back);
+    }
+
+    pub fn draw<I, R>(&self, mut display: &mut Ili9341<I, R>)
+    where
+        I: WriteOnlyDataCommand,
+    {
+        let iter = self
+            .front
+            .bytes
+            .iter()
+            .zip(&self.back.bytes)
+            .map(|(front, back)| {
+                (0..8).map(|i| {
+                    let f = extract_bit(*front, i);
+                    let b = extract_bit(*back, i);
+
+                    if f {
+                        if b {
+                            0b1111100000000000_u16
+                        } else {
+                            0xFFFF_u16
+                        }
+                    } else {
+                        0x0000_u16
+                    }
+                })
+            })
+        .flatten();
+
+        display
+            .draw_raw_iter(0, 0, BUF_WIDTH as _, BUF_HEIGHT as _, iter)
+            .unwrap();
     }
 }
 
@@ -184,6 +236,11 @@ impl Buffer {
         let mut rng = esp_hal::rng::Rng::new();
         rng.read(&mut ret.bytes);
 
+        let div = (rng.random() & 0xff) as u8;
+        for b in &mut ret.bytes {
+            *b /= div;
+        }
+
         ret
     }
 
@@ -197,9 +254,9 @@ impl Buffer {
             .map(|byte| {
                 (0..8).map(|i| {
                     if extract_bit(*byte, i) {
-                        0x0000_u16
-                    } else {
                         0xFFFF_u16
+                    } else {
+                        0x0000_u16
                     }
                 })
             })
