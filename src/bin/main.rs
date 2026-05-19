@@ -72,6 +72,7 @@ fn main() -> ! {
     let _ = peripherals.GPIO16;
     let _ = peripherals.GPIO20;
 
+    esp_alloc::heap_allocator!(size: 150 * 1024);
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 98768);
 
     let config = OutputConfig::default();
@@ -112,8 +113,11 @@ fn main() -> ! {
 
     display.clear(Rgb565::RED).unwrap();
 
-     let [w, h] = [320, 240];
+    let [w, h] = [320, 240];
+    //let [w, h] = [320/2, 240/2];
     let mut color = Buffer2d::fill([w, h], 0);
+
+    display.clear(Rgb565::BLUE).unwrap();
 
     Triangle.render(
         &[
@@ -125,8 +129,7 @@ fn main() -> ! {
         &mut Empty::default(),
     );
 
-    display.draw_raw_iter(0, 0, 320, 240, color.raw().iter().copied());
-
+    display.draw_raw_iter(0, 0, w as _, h as _, color.raw().iter().copied());
 
     loop {
         let delay_start = Instant::now();
