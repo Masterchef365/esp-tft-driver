@@ -117,15 +117,15 @@ fn main() -> ! {
 
     Triangle.render(
         &[
-            ([-1.0, -1.0], Rgba::red()),
-            ([1.0, -1.0], Rgba::green()),
-            ([0.0, 1.0], Rgba::blue()),
+            ([-1.0, -1.0], Algebra565::RED),
+            ([1.0, -1.0], Algebra565::GREEN),
+            ([0.0, 1.0], Algebra565::BLUE),
         ],
         &mut color,
         &mut Empty::default(),
     );
 
-    display.draw_raw_iter(0, 0, 320, 240, color.raw().iter().map(|color| cvt_color(*color)));
+    display.draw_raw_iter(0, 0, 320, 240, color.raw().iter().copied());
 
 
     loop {
@@ -137,11 +137,11 @@ fn main() -> ! {
 struct Triangle;
 
 impl<'r> Pipeline<'r> for Triangle {
-    type Vertex = ([f32; 2], Rgba<f32>);
-    type VertexData = Rgba<f32>;
+    type Vertex = ([f32; 2], Algebra565);
+    type VertexData = Algebra565;
     type Primitives = TriangleList;
-    type Fragment = Rgba<f32>;
-    type Pixel = u32;
+    type Fragment = Algebra565;
+    type Pixel = u16;
 
     fn vertex(&self, (pos, col): &Self::Vertex) -> ([f32; 4], Self::VertexData) {
         ([pos[0], pos[1], 0.0, 1.0], *col)
@@ -152,16 +152,8 @@ impl<'r> Pipeline<'r> for Triangle {
     }
 
     fn blend(&self, _: Self::Pixel, col: Self::Fragment) -> Self::Pixel {
-        u32::from_le_bytes(col.map(|e| (e * 255.0) as u8).into_array())
+        col.bits
     }
-}
-
-fn cvt_color(v: u32) -> u16 {
-    let [r, g, b, a] = v.to_be_bytes().map(|s| s as u16);
-    let r = r >> 3;
-    let g = g >> 2;
-    let b = b >> 3;
-    (r << (5+6)) | (g << 5) | b
 }
 
 #[derive(Copy, Clone, Default)]
@@ -219,7 +211,20 @@ fn test_algebra565_roundtrip() {
     assert_eq!(Algebra565::from_bgrf([15.0/31.0, 19.0/63.0, 19.0/31.0]).to_bgrf(), [15.0/31.0, 19.0/63.0, 19.0/31.0]);
 }
 
-/*
 impl euc::math::WeightedSum for Algebra565 {
+    fn weighted_sum<const N: usize>(
+        values: [Self; N],
+        weights: [f32; N],
+    ) -> Self {
+        let mut sum = [0_f32; 3];
+
+        for i in 0..N {
+            let bgr = values[i].to_bgrf();
+            for j in 0..3 {
+                sum[i] += bgr[i] * weights[i];
+            }
+        }
+
+        Self::from_bgrf(sum)
+    }
 }
-*/
