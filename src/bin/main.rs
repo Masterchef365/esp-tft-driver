@@ -117,44 +117,35 @@ fn main() -> ! {
 
     let mut gui = egui_euc::SoftwareGui::new();
 
-    //esp_println::println!("{}", esp_alloc::HEAP.stats());
-
     esp_alloc::heap_allocator!(size: 170 * 1024);
 
     let [w, h] = [320 / 2, 240 / 2];
     //let [w, h] = [320/2, 240/2];
     let mut color = Buffer2d::fill([w, h], Algebra565::BLACK);
 
-    //esp_println::println!("{}", esp_alloc::HEAP.stats());
-
-    display.clear(Rgb565::GREEN).unwrap();
-
-    //esp_println::println!("{}", esp_alloc::HEAP.stats());
-
     display.clear(Rgb565::BLUE).unwrap();
 
     let mut i = 0;
-    //let colors = [Algebra565::RED, Algebra565::GREEN, Algebra565::BLUE, Algebra565::CYAN, Algebra565::YELLOW, Algebra565::MAGENTA];
     loop {
         let mut raw_input = egui::RawInput::default();
 
+        /*
         let pixels_per_point = 0.05;
 
-        /*
         for (_, vp) in raw_input.viewports.iter_mut() {
             vp.native_pixels_per_point = Some(pixels_per_point);
         }
         */
 
-        gui.egui_ctx
-            .input_mut(|i| i.pixels_per_point = pixels_per_point);
-
         gui.update(
             raw_input,
             [w, h],
             |ctx| {
-                let rect = egui::Rect::from_two_pos(egui::Pos2::ZERO, egui::Pos2::new(50.0, 50.0));
-                ctx.debug_painter().rect_filled(rect, 0.0, egui::Color32::RED);
+                //ctx.set_zoom_factor(0.5 / pixels_per_point);
+
+                let rect = egui::Rect::from_two_pos(egui::Pos2::ZERO, egui::Pos2::new(25.0, 25.0));
+                ctx.debug_painter().rect_filled(rect, 0.0, egui::Color32::MAGENTA);
+
                 /*
                 egui::CentralPanel::default().show(ctx, |ui| {
                     ui.label("Hello, ESP32 world!");
