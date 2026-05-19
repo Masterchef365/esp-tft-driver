@@ -142,15 +142,12 @@ fn main() -> ! {
             [w, h],
             |ctx| {
                 //ctx.set_zoom_factor(0.5 / pixels_per_point);
-
-                let rect = egui::Rect::from_two_pos(egui::Pos2::ZERO, egui::Pos2::new(25.0, 25.0));
-                ctx.debug_painter().rect_filled(rect, 0.0, egui::Color32::MAGENTA);
-
-                /*
+                let off = egui::Vec2::new((i % 50) as f32 + 25.0, 25.0);
                 egui::CentralPanel::default().show(ctx, |ui| {
+                    let rect = egui::Rect::from_two_pos(egui::Pos2::ZERO + off, egui::Pos2::new(25.0, 25.0) + off);
+                    ui.painter().rect_filled(rect, 0.0, egui::Color32::MAGENTA);
                     ui.label("Hello, ESP32 world!");
                 });
-                */
             },
             &mut color,
         );
