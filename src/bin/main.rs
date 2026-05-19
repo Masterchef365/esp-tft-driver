@@ -27,13 +27,13 @@ use esp_hal::{
     gpio::{Level, Output, Input, InputConfig, OutputConfig},
 };
 
-use vek::num_traits::Float;
-
 use euc::{Buffer2d, Empty, Pipeline, TriangleList};
-use vek::Rgba;
+
+use egui_euc::Algebra565;
 
 #[panic_handler]
-fn panic(_: &core::panic::PanicInfo) -> ! {
+fn panic(info: &core::panic::PanicInfo) -> ! {
+    esp_println::println!("{info}");
     loop {}
 }
 
@@ -113,31 +113,39 @@ fn main() -> ! {
 
     display.clear(Rgb565::RED).unwrap();
 
+    esp_println::println!("{:?}", esp_alloc::HEAP.stats());
+
     let [w, h] = [320, 240];
     //let [w, h] = [320/2, 240/2];
-    let mut color = Buffer2d::fill([w, h], 0);
+    let mut color = Buffer2d::fill([w, h], Algebra565::BLACK);
+
+    esp_println::println!("{:?}", esp_alloc::HEAP.stats());
 
     display.clear(Rgb565::GREEN).unwrap();
 
     let mut gui = egui_euc::SoftwareGui::new();
 
+    esp_println::println!("{:?}", esp_alloc::HEAP.stats());
+
     display.clear(Rgb565::BLUE).unwrap();
 
-    let mut i = 0;
-    let colors = [Algebra565::RED, Algebra565::GREEN, Algebra565::BLUE, Algebra565::CYAN, Algebra565::YELLOW, Algebra565::MAGENTA];
+    //let mut i = 0;
+    //let colors = [Algebra565::RED, Algebra565::GREEN, Algebra565::BLUE, Algebra565::CYAN, Algebra565::YELLOW, Algebra565::MAGENTA];
     loop {
-        Triangle.render(
-            &[
-                ([-1.0, -1.0], colors[i]),
-                ([1.0, -1.0], colors[(i + 1) % colors.len()]),
-                ([0.0, 1.0], colors[(i + 2) % colors.len()]),
-            ],
-            &mut color,
-            &mut Empty::default(),
+        gui.update(
+            egui::RawInput::default(),
+            [w, h],
+            |ctx| {
+                egui::CentralPanel::default().show(ctx, |ui| {
+                    ui.label("Hello, ESP32 world!");
+                });
+            },
+            &mut color
         );
-        i = (i + 1) % colors.len();
 
-        display.draw_raw_iter(0, 0, w as _, h as _, color.raw().iter().copied());
+        esp_println::println!("LOOP {:?}", esp_alloc::HEAP.stats());
+
+        display.draw_raw_iter(0, 0, w as _, h as _, color.raw().iter().map(|c| c.bits));
 
         //let delay_start = Instant::now();
         //while delay_start.elapsed() < Duration::from_millis(500) {}
@@ -163,82 +171,5 @@ impl<'r> Pipeline<'r> for Triangle {
 
     fn blend(&self, _: Self::Pixel, col: Self::Fragment) -> Self::Pixel {
         col.bits
-    }
-}
-
-#[derive(Copy, Clone, Default)]
-struct Algebra565 {
-    bits: u16,
-}
-
-fn float_to_bits(value: f32, nbits: u8) -> u16 {
-    let maxval = ((1u16 << nbits) - 1) as f32;
-    (value.clamp(0.0, 1.0) * maxval).floor() as u16
-}
-
-fn bits_to_float(bits: u16, nbits: u8) -> f32 {
-    let maxval = ((1u16 << nbits) - 1) as f32;
-    bits as f32 / maxval
-}
-
-fn extract_bits_range(bits: u16, nbits: u8, position: u8) -> u16 {
-    (bits >> position) & ((1 << nbits) - 1)
-}
-
-impl Algebra565 {
-    pub const RED: Self = Self { bits: 0b1111100000000000 };
-    pub const GREEN: Self = Self { bits: 0b0000011111100000 };
-    pub const BLUE: Self = Self { bits: 0b0000000000011111 };
-    pub const CYAN: Self = Self { bits: 0b0000011111111111 };
-    pub const YELLOW: Self = Self { bits: 0b1111111111000000 };
-    pub const MAGENTA: Self = Self { bits: 0b1111100000011111 };
-
-    pub fn new(bits: u16) -> Self {
-        Self { bits }
-    }
-
-    pub fn to_bgrf(&self) -> [f32; 3] {
-        [
-            bits_to_float(extract_bits_range(self.bits, 5, 0), 5),
-            bits_to_float(extract_bits_range(self.bits, 6, 5), 6),
-            bits_to_float(extract_bits_range(self.bits, 5, 6+5), 5),
-        ]
-    }
-
-    pub fn from_bgrf([b, g, r]: [f32; 3]) -> Self {
-        let mut bits = 0;
-        bits |= float_to_bits(b, 5);
-        bits |= float_to_bits(g, 6) << 5;
-        bits |= float_to_bits(r, 5) << (5+6);
-        Self { bits }
-    }
-}
-
-#[cfg(test)]
-#[test]
-fn test_algebra565_roundtrip() {
-    assert_eq!(Algebra565::from_bgrf([1., 0., 0.]).to_bgrf(), [1.0, 0.0, 0.0]);
-    assert_eq!(Algebra565::from_bgrf([0., 1., 0.]).to_bgrf(), [0.0, 1.0, 0.0]);
-    assert_eq!(Algebra565::from_bgrf([0., 0., 1.]).to_bgrf(), [0.0, 0.0, 1.0]);
-
-    assert_eq!(Algebra565::from_bgrf([15.0/31.0, 19.0/63.0, 19.0/31.0]).to_bgrf(), [15.0/31.0, 19.0/63.0, 19.0/31.0]);
-}
-
-impl euc::math::WeightedSum for Algebra565 {
-    fn weighted_sum<const N: usize>(
-        values: [Self; N],
-        weights: [f32; N],
-    ) -> Self {
-        let mut sum = [0_f32; 3];
-
-        for i in 0..N {
-            let bgr = values[i].to_bgrf();
-
-            for j in 0..3 {
-                sum[j] += bgr[j] * weights[i];
-            }
-        }
-
-        Self::from_bgrf(sum)
     }
 }
