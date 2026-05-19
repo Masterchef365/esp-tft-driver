@@ -1,0 +1,1 @@
+clear; ESPFLASH_BAUD=921600 RUST_LOG=off cargo r -r

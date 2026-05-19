@@ -30,12 +30,16 @@ use esp_hal::{
 use euc::{Buffer2d, Empty, Pipeline, TriangleList};
 
 use egui_euc::Algebra565;
+use esp_backtrace as _;
 
+/*
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
     esp_println::println!("{info}");
+    esp_println::println!("{}", esp_alloc::HEAP.stats());
     loop {}
 }
+*/
 
 extern crate alloc;
 
@@ -72,7 +76,7 @@ fn main() -> ! {
     let _ = peripherals.GPIO16;
     let _ = peripherals.GPIO20;
 
-    esp_alloc::heap_allocator!(size: 160 * 1024);
+    esp_alloc::heap_allocator!(size: 170 * 1024);
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 98768);
 
     let config = OutputConfig::default();
@@ -113,29 +117,37 @@ fn main() -> ! {
 
     display.clear(Rgb565::RED).unwrap();
 
-    esp_println::println!("{:?}", esp_alloc::HEAP.stats());
+    //esp_println::println!("{}", esp_alloc::HEAP.stats());
 
-    let [w, h] = [320, 240];
+    let [w, h] = [32, 24];
     //let [w, h] = [320/2, 240/2];
     let mut color = Buffer2d::fill([w, h], Algebra565::BLACK);
 
-    esp_println::println!("{:?}", esp_alloc::HEAP.stats());
+    //esp_println::println!("{}", esp_alloc::HEAP.stats());
 
     display.clear(Rgb565::GREEN).unwrap();
 
     let mut gui = egui_euc::SoftwareGui::new();
 
-    esp_println::println!("{:?}", esp_alloc::HEAP.stats());
+
+    //esp_println::println!("{}", esp_alloc::HEAP.stats());
 
     display.clear(Rgb565::BLUE).unwrap();
 
     //let mut i = 0;
     //let colors = [Algebra565::RED, Algebra565::GREEN, Algebra565::BLUE, Algebra565::CYAN, Algebra565::YELLOW, Algebra565::MAGENTA];
     loop {
+        let mut raw_input = 
+            egui::RawInput::default();
+
+        gui.egui_ctx.input_mut(|i| i.pixels_per_point = 0.5);
+        esp_println::println!("Pixels per point: {}", gui.egui_ctx.pixels_per_point());
+
         gui.update(
-            egui::RawInput::default(),
+            raw_input,
             [w, h],
             |ctx| {
+                esp_println::println!("Pixels per point: {}", ctx.pixels_per_point());
                 egui::CentralPanel::default().show(ctx, |ui| {
                     ui.label("Hello, ESP32 world!");
                 });
