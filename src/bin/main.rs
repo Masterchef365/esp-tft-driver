@@ -113,6 +113,8 @@ fn main() -> ! {
 
     display.clear(Rgb565::RED).unwrap();
 
+    let mut gui = egui_euc::SoftwareGui::new();
+
     let [w, h] = [320, 240];
     //let [w, h] = [320/2, 240/2];
     let mut color = Buffer2d::fill([w, h], 0);

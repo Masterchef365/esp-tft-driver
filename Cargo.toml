@@ -22,8 +22,17 @@ ili9341 = "0.6.0"
 embedded-hal-bus = "0.3.0"
 embedded-graphics-core = "0.4.1"
 
+egui-euc = { git = "https://github.com/Masterchef365/egui-euc.git", branch = "no_std", default-features = false }
+egui = { version = "0.32.0", default-features = false }
+
 euc = { git = "https://github.com/zesterer/euc.git", rev = "e8f7aee", default-features = false, features = ["micromath"] }
 vek = { version = "0.17", default-features = false, features = ["rgba", "libm"] }
+
+#fearless_simd = { version = "0.3.0", default-features = false }
+
+[patch.crates-io]
+#egui = { git = "https://github.com/Masterchef365/egui.git", branch = "no_std" }
+egui = { path = "../egui/crates/egui/" }
 
 
 # For fine tuning these settings, please refer to https://doc.rust-lang.org/cargo/reference/profiles.html
