@@ -72,7 +72,7 @@ fn main() -> ! {
     let _ = peripherals.GPIO16;
     let _ = peripherals.GPIO20;
 
-    esp_alloc::heap_allocator!(size: 150 * 1024);
+    esp_alloc::heap_allocator!(size: 160 * 1024);
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 98768);
 
     let config = OutputConfig::default();
@@ -113,11 +113,13 @@ fn main() -> ! {
 
     display.clear(Rgb565::RED).unwrap();
 
-    let mut gui = egui_euc::SoftwareGui::new();
-
     let [w, h] = [320, 240];
     //let [w, h] = [320/2, 240/2];
     let mut color = Buffer2d::fill([w, h], 0);
+
+    display.clear(Rgb565::GREEN).unwrap();
+
+    let mut gui = egui_euc::SoftwareGui::new();
 
     display.clear(Rgb565::BLUE).unwrap();
 
