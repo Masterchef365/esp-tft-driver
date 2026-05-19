@@ -84,7 +84,7 @@ fn main() -> ! {
     let mut spi = Spi::new(
         peripherals.SPI2,
         Config::default()
-            .with_frequency(Rate::from_khz(10000))
+            .with_frequency(Rate::from_khz(40000))
             .with_mode(Mode::_0),
     ).unwrap()
     .with_sck(sck)
@@ -119,21 +119,24 @@ fn main() -> ! {
 
     display.clear(Rgb565::BLUE).unwrap();
 
-    Triangle.render(
-        &[
-            ([-1.0, -1.0], Algebra565::RED),
-            ([1.0, -1.0], Algebra565::GREEN),
-            ([0.0, 1.0], Algebra565::BLUE),
-        ],
-        &mut color,
-        &mut Empty::default(),
-    );
-
-    display.draw_raw_iter(0, 0, w as _, h as _, color.raw().iter().copied());
-
+    let mut i = 0;
+    let colors = [Algebra565::RED, Algebra565::GREEN, Algebra565::BLUE, Algebra565::CYAN, Algebra565::YELLOW, Algebra565::MAGENTA];
     loop {
-        let delay_start = Instant::now();
-        while delay_start.elapsed() < Duration::from_millis(500) {}
+        Triangle.render(
+            &[
+                ([-1.0, -1.0], colors[i]),
+                ([1.0, -1.0], colors[(i + 1) % colors.len()]),
+                ([0.0, 1.0], colors[(i + 2) % colors.len()]),
+            ],
+            &mut color,
+            &mut Empty::default(),
+        );
+        i = (i + 1) % colors.len();
+
+        display.draw_raw_iter(0, 0, w as _, h as _, color.raw().iter().copied());
+
+        //let delay_start = Instant::now();
+        //while delay_start.elapsed() < Duration::from_millis(500) {}
     }
 }
 
@@ -179,9 +182,12 @@ fn extract_bits_range(bits: u16, nbits: u8, position: u8) -> u16 {
 }
 
 impl Algebra565 {
-    pub const BLUE: Self = Self { bits: 0b1111100000000000 };
+    pub const RED: Self = Self { bits: 0b1111100000000000 };
     pub const GREEN: Self = Self { bits: 0b0000011111100000 };
-    pub const RED: Self = Self { bits: 0b0000000000011111 };
+    pub const BLUE: Self = Self { bits: 0b0000000000011111 };
+    pub const CYAN: Self = Self { bits: 0b0000011111111111 };
+    pub const YELLOW: Self = Self { bits: 0b1111111111000000 };
+    pub const MAGENTA: Self = Self { bits: 0b1111100000011111 };
 
     pub fn new(bits: u16) -> Self {
         Self { bits }
@@ -223,8 +229,9 @@ impl euc::math::WeightedSum for Algebra565 {
 
         for i in 0..N {
             let bgr = values[i].to_bgrf();
+
             for j in 0..3 {
-                sum[i] += bgr[i] * weights[i];
+                sum[j] += bgr[j] * weights[i];
             }
         }
 
