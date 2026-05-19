@@ -7,25 +7,23 @@
 )]
 #![deny(clippy::large_stack_frames)]
 
-use esp_hal::clock::CpuClock;
-use esp_hal::main;
-use esp_hal::time::{Duration, Instant};
-use esp_hal::spi::{
-    Mode,
-    master::{Config, Spi},
-};
-use ili9341::Ili9341;
-use ili9341::Orientation;
-use esp_hal::time::Rate;
 use display_interface_spi::SPIInterface;
-use esp_hal::gpio::Pin;
-use embedded_hal_bus::spi::ExclusiveDevice;
 use embedded_graphics_core::draw_target::DrawTarget;
 use embedded_graphics_core::pixelcolor::Rgb565;
 use embedded_graphics_core::pixelcolor::RgbColor;
-use esp_hal::{
-    gpio::{Level, Output, Input, InputConfig, OutputConfig},
+use embedded_hal_bus::spi::ExclusiveDevice;
+use esp_hal::clock::CpuClock;
+use esp_hal::gpio::Pin;
+use esp_hal::gpio::{Input, InputConfig, Level, Output, OutputConfig};
+use esp_hal::main;
+use esp_hal::spi::{
+    master::{Config, Spi},
+    Mode,
 };
+use esp_hal::time::Rate;
+use esp_hal::time::{Duration, Instant};
+use ili9341::Ili9341;
+use ili9341::Orientation;
 
 use euc::{Buffer2d, Empty, Pipeline, TriangleList};
 
@@ -76,7 +74,6 @@ fn main() -> ! {
     let _ = peripherals.GPIO16;
     let _ = peripherals.GPIO20;
 
-    esp_alloc::heap_allocator!(size: 170 * 1024);
     esp_alloc::heap_allocator!(#[esp_hal::ram(reclaimed)] size: 98768);
 
     let config = OutputConfig::default();
@@ -90,7 +87,8 @@ fn main() -> ! {
         Config::default()
             .with_frequency(Rate::from_khz(40000))
             .with_mode(Mode::_0),
-    ).unwrap()
+    )
+    .unwrap()
     .with_sck(sck)
     .with_mosi(mosi)
     .with_miso(miso);
@@ -117,9 +115,13 @@ fn main() -> ! {
 
     display.clear(Rgb565::RED).unwrap();
 
+    let mut gui = egui_euc::SoftwareGui::new();
+
     //esp_println::println!("{}", esp_alloc::HEAP.stats());
 
-    let [w, h] = [32, 24];
+    esp_alloc::heap_allocator!(size: 170 * 1024);
+
+    let [w, h] = [320 / 2, 240 / 2];
     //let [w, h] = [320/2, 240/2];
     let mut color = Buffer2d::fill([w, h], Algebra565::BLACK);
 
@@ -127,37 +129,58 @@ fn main() -> ! {
 
     display.clear(Rgb565::GREEN).unwrap();
 
-    let mut gui = egui_euc::SoftwareGui::new();
-
-
     //esp_println::println!("{}", esp_alloc::HEAP.stats());
 
     display.clear(Rgb565::BLUE).unwrap();
 
-    //let mut i = 0;
+    let mut i = 0;
     //let colors = [Algebra565::RED, Algebra565::GREEN, Algebra565::BLUE, Algebra565::CYAN, Algebra565::YELLOW, Algebra565::MAGENTA];
     loop {
-        let mut raw_input = 
-            egui::RawInput::default();
+        let mut raw_input = egui::RawInput::default();
 
-        gui.egui_ctx.input_mut(|i| i.pixels_per_point = 0.5);
-        esp_println::println!("Pixels per point: {}", gui.egui_ctx.pixels_per_point());
+        let pixels_per_point = 0.05;
+
+        /*
+        for (_, vp) in raw_input.viewports.iter_mut() {
+            vp.native_pixels_per_point = Some(pixels_per_point);
+        }
+        */
+
+        gui.egui_ctx
+            .input_mut(|i| i.pixels_per_point = pixels_per_point);
 
         gui.update(
             raw_input,
             [w, h],
             |ctx| {
-                esp_println::println!("Pixels per point: {}", ctx.pixels_per_point());
+                let rect = egui::Rect::from_two_pos(egui::Pos2::ZERO, egui::Pos2::new(50.0, 50.0));
+                ctx.debug_painter().rect_filled(rect, 0.0, egui::Color32::RED);
+                /*
                 egui::CentralPanel::default().show(ctx, |ui| {
                     ui.label("Hello, ESP32 world!");
                 });
+                */
             },
-            &mut color
+            &mut color,
         );
 
-        esp_println::println!("LOOP {:?}", esp_alloc::HEAP.stats());
+        if i % 100 == 0 {
+            esp_println::println!("LOOP {i}:\n{}", esp_alloc::HEAP.stats());
+        }
+        i += 1;
 
-        display.draw_raw_iter(0, 0, w as _, h as _, color.raw().iter().map(|c| c.bits));
+        //display.draw_raw_iter(0, 0, w as _, h as _, color.raw().iter().map(|c| c.bits));
+        display.draw_raw_iter(
+            0,
+            0,
+            (w * 2) as _,
+            (h * 2) as _,
+            color
+                .raw()
+                .chunks(w)
+                .map(|chunk| chunk.iter().chain(chunk).map(|c| [c.bits; 2]).flatten())
+                .flatten(),
+        );
 
         //let delay_start = Instant::now();
         //while delay_start.elapsed() < Duration::from_millis(500) {}
