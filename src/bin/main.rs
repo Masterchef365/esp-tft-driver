@@ -27,6 +27,8 @@ use esp_hal::{
     gpio::{Level, Output, Input, InputConfig, OutputConfig},
 };
 
+use vek::num_traits::Float;
+
 use euc::{Buffer2d, Empty, Pipeline, TriangleList};
 use vek::Rgba;
 
@@ -161,3 +163,63 @@ fn cvt_color(v: u32) -> u16 {
     let b = b >> 3;
     (r << (5+6)) | (g << 5) | b
 }
+
+#[derive(Copy, Clone, Default)]
+struct Algebra565 {
+    bits: u16,
+}
+
+fn float_to_bits(value: f32, nbits: u8) -> u16 {
+    let maxval = ((1u16 << nbits) - 1) as f32;
+    (value.clamp(0.0, 1.0) * maxval).floor() as u16
+}
+
+fn bits_to_float(bits: u16, nbits: u8) -> f32 {
+    let maxval = ((1u16 << nbits) - 1) as f32;
+    bits as f32 / maxval
+}
+
+fn extract_bits_range(bits: u16, nbits: u8, position: u8) -> u16 {
+    (bits >> position) & ((1 << nbits) - 1)
+}
+
+impl Algebra565 {
+    pub const BLUE: Self = Self { bits: 0b1111100000000000 };
+    pub const GREEN: Self = Self { bits: 0b0000011111100000 };
+    pub const RED: Self = Self { bits: 0b0000000000011111 };
+
+    pub fn new(bits: u16) -> Self {
+        Self { bits }
+    }
+
+    pub fn to_bgrf(&self) -> [f32; 3] {
+        [
+            bits_to_float(extract_bits_range(self.bits, 5, 0), 5),
+            bits_to_float(extract_bits_range(self.bits, 6, 5), 6),
+            bits_to_float(extract_bits_range(self.bits, 5, 6+5), 5),
+        ]
+    }
+
+    pub fn from_bgrf([b, g, r]: [f32; 3]) -> Self {
+        let mut bits = 0;
+        bits |= float_to_bits(b, 5);
+        bits |= float_to_bits(g, 6) << 5;
+        bits |= float_to_bits(r, 5) << (5+6);
+        Self { bits }
+    }
+}
+
+#[cfg(test)]
+#[test]
+fn test_algebra565_roundtrip() {
+    assert_eq!(Algebra565::from_bgrf([1., 0., 0.]).to_bgrf(), [1.0, 0.0, 0.0]);
+    assert_eq!(Algebra565::from_bgrf([0., 1., 0.]).to_bgrf(), [0.0, 1.0, 0.0]);
+    assert_eq!(Algebra565::from_bgrf([0., 0., 1.]).to_bgrf(), [0.0, 0.0, 1.0]);
+
+    assert_eq!(Algebra565::from_bgrf([15.0/31.0, 19.0/63.0, 19.0/31.0]).to_bgrf(), [15.0/31.0, 19.0/63.0, 19.0/31.0]);
+}
+
+/*
+impl euc::math::WeightedSum for Algebra565 {
+}
+*/
