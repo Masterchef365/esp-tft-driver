@@ -121,12 +121,6 @@ fn main() -> ! {
 
     let mut raw_input = egui::RawInput::default();
 
-    gui.egui_ctx.run(raw_input.clone(), |ctx| {
-        egui::CentralPanel::default().show(&ctx, |ui| {
-            ui.label(egui::epaint::COMMON_CHARS);
-        });
-    });
-
     let [w, h] = [320, 240];
     //let [w, h] = [320/2, 240/2];
     let mut color = Buffer2d::fill([w, h], Algebra565::BLACK);
@@ -150,7 +144,8 @@ fn main() -> ! {
                 //ctx.set_zoom_factor(0.5 / pixels_per_point);
                 let off = egui::Vec2::new(((i * 2) % 50) as f32 + 25.0, 25.0);
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    let rect = egui::Rect::from_two_pos(egui::Pos2::ZERO + off, egui::Pos2::new(2048.0, 32.0) + off);
+                    ui.label(egui::epaint::COMMON_CHARS);
+                    let rect = egui::Rect::from_two_pos(egui::Pos2::ZERO + off, egui::Pos2::new(1024.0, 32.0) + off);
                     let uv = egui::Rect::from_two_pos(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0));
                     //ui.painter().rect_filled(rect, 0.0, egui::Color32::MAGENTA);
                     ui.painter().image(
@@ -160,6 +155,7 @@ fn main() -> ! {
                         egui::Color32::WHITE
                     );
 
+                    /*
                     ui.painter().text(
                         egui::Pos2::new(50.0, 50.0),
                         egui::Align2::CENTER_CENTER,
@@ -167,6 +163,7 @@ fn main() -> ! {
                         Default::default(),
                         egui::Color32::WHITE,
                     );
+                    */
                     //ui.label("Hello, ESP32 world!");
                 });
             },

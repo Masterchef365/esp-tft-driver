@@ -324,7 +324,6 @@ version = "0.1.0"
 dependencies = [
  "bytemuck",
  "egui",
- "esp-println",
  "euc",
  "hashbrown 0.15.5",
  "num-traits",
