@@ -127,7 +127,7 @@ fn main() -> ! {
         });
     });
 
-    let [w, h] = [320 / 2, 240 / 2];
+    let [w, h] = [320, 240];
     //let [w, h] = [320/2, 240/2];
     let mut color = Buffer2d::fill([w, h], Algebra565::BLACK);
 
@@ -150,7 +150,7 @@ fn main() -> ! {
                 //ctx.set_zoom_factor(0.5 / pixels_per_point);
                 let off = egui::Vec2::new((i % 50) as f32 + 25.0, 25.0);
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    let rect = egui::Rect::from_two_pos(egui::Pos2::ZERO + off, egui::Pos2::new(25.0, 25.0) + off);
+                    let rect = egui::Rect::from_two_pos(egui::Pos2::ZERO + off, egui::Pos2::new(50.0, 50.0) + off);
                     ui.painter().rect_filled(rect, 0.0, egui::Color32::MAGENTA);
                     ui.painter().text(
                         egui::Pos2::new(50.0, 50.0),
@@ -170,7 +170,8 @@ fn main() -> ! {
         }
         i += 1;
 
-        //display.draw_raw_iter(0, 0, w as _, h as _, color.raw().iter().map(|c| c.bits));
+        display.draw_raw_iter(0, 0, w as _, h as _, color.raw().iter().map(|c| c.bits));
+        /*
         display.draw_raw_iter(
             0,
             0,
@@ -182,6 +183,7 @@ fn main() -> ! {
                 .map(|chunk| chunk.iter().chain(chunk).map(|c| [c.bits; 2]).flatten())
                 .flatten(),
         );
+        */
 
         //let delay_start = Instant::now();
         //while delay_start.elapsed() < Duration::from_millis(500) {}
