@@ -108,7 +108,7 @@ fn main() -> ! {
         iface,
         reset_gpio,
         &mut delay,
-        Orientation::Landscape,
+        Orientation::LandscapeFlipped,
         ili9341::DisplaySize240x320,
     )
     .unwrap();
@@ -148,10 +148,18 @@ fn main() -> ! {
             [w, h],
             |ctx| {
                 //ctx.set_zoom_factor(0.5 / pixels_per_point);
-                let off = egui::Vec2::new((i % 50) as f32 + 25.0, 25.0);
+                let off = egui::Vec2::new(((i * 2) % 50) as f32 + 25.0, 25.0);
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    let rect = egui::Rect::from_two_pos(egui::Pos2::ZERO + off, egui::Pos2::new(50.0, 50.0) + off);
-                    ui.painter().rect_filled(rect, 0.0, egui::Color32::MAGENTA);
+                    let rect = egui::Rect::from_two_pos(egui::Pos2::ZERO + off, egui::Pos2::new(2048.0, 32.0) + off);
+                    let uv = egui::Rect::from_two_pos(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0));
+                    //ui.painter().rect_filled(rect, 0.0, egui::Color32::MAGENTA);
+                    ui.painter().image(
+                        egui::TextureId::Managed(0),
+                        rect, 
+                        uv,
+                        egui::Color32::WHITE
+                    );
+
                     ui.painter().text(
                         egui::Pos2::new(50.0, 50.0),
                         egui::Align2::CENTER_CENTER,
@@ -187,27 +195,5 @@ fn main() -> ! {
 
         //let delay_start = Instant::now();
         //while delay_start.elapsed() < Duration::from_millis(500) {}
-    }
-}
-
-struct Triangle;
-
-impl<'r> Pipeline<'r> for Triangle {
-    type Vertex = ([f32; 2], Algebra565);
-    type VertexData = Algebra565;
-    type Primitives = TriangleList;
-    type Fragment = Algebra565;
-    type Pixel = u16;
-
-    fn vertex(&self, (pos, col): &Self::Vertex) -> ([f32; 4], Self::VertexData) {
-        ([pos[0], pos[1], 0.0, 1.0], *col)
-    }
-
-    fn fragment(&self, col: Self::VertexData) -> Self::Fragment {
-        col
-    }
-
-    fn blend(&self, _: Self::Pixel, col: Self::Fragment) -> Self::Pixel {
-        col.bits
     }
 }
