@@ -117,6 +117,13 @@ fn main() -> ! {
 
     let mut gui = egui_euc::SoftwareGui::new();
 
+
+    gui.egui_ctx.fonts(|fonts| {
+        let font_impl = fonts.lock().fonts.font(&Default::default()).fonts[0].clone();
+        *font_impl.glyph_info_cache.write() = egui::epaint::load_glyphs();
+    });
+
+
     esp_alloc::heap_allocator!(size: 170 * 1024);
 
     let mut raw_input = egui::RawInput::default();
