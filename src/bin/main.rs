@@ -117,19 +117,18 @@ fn main() -> ! {
 
     let mut gui = egui_euc::SoftwareGui::new();
 
-
-    gui.egui_ctx.fonts(|fonts| {
-        let font_impl = fonts.lock().fonts.font(&Default::default()).fonts[0].clone();
-        *font_impl.glyph_info_cache.write() = egui::epaint::load_glyphs();
-    });
-
-
     esp_alloc::heap_allocator!(size: 170 * 1024);
 
     let mut raw_input = egui::RawInput::default();
 
+    /*
+    gui.egui_ctx.run(raw_input.clone(), |ctx| {
+        
+    });
+    */
+
     let [w, h] = [320, 240];
-    //let [w, h] = [320/2, 240/2];
+    //let [w, h] = [2*320/3, 2*240/3];
     let mut color = Buffer2d::fill([w, h], Algebra565::BLACK);
 
     display.clear(Rgb565::BLUE).unwrap();
@@ -148,9 +147,15 @@ fn main() -> ! {
             raw_input.clone(),
             [w, h],
             |ctx| {
+                ctx.fonts(|fonts| {
+                    let font_impl = fonts.lock().fonts.font(&Default::default()).fonts[0].clone();
+                    *font_impl.glyph_info_cache.write() = egui::epaint::load_glyphs();
+                });
+
                 //ctx.set_zoom_factor(0.5 / pixels_per_point);
                 let off = egui::Vec2::new(((i * 2) % 50) as f32 + 25.0, 25.0);
                 egui::CentralPanel::default().show(ctx, |ui| {
+                    /*
                     ui.label(egui::epaint::COMMON_CHARS);
                     let rect = egui::Rect::from_two_pos(egui::Pos2::ZERO + off, egui::Pos2::new(1024.0, 32.0) + off);
                     let uv = egui::Rect::from_two_pos(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0));
@@ -161,8 +166,8 @@ fn main() -> ! {
                         uv,
                         egui::Color32::WHITE
                     );
+                    */
 
-                    /*
                     ui.painter().text(
                         egui::Pos2::new(50.0, 50.0),
                         egui::Align2::CENTER_CENTER,
@@ -170,7 +175,6 @@ fn main() -> ! {
                         Default::default(),
                         egui::Color32::WHITE,
                     );
-                    */
                     //ui.label("Hello, ESP32 world!");
                 });
             },
