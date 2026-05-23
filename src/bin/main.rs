@@ -30,6 +30,8 @@ use euc::{Buffer2d, Empty, Pipeline, TriangleList};
 use egui_euc::Algebra565;
 use esp_backtrace as _;
 use egui::Widget;
+use esp_hal::analog::adc::*;
+use alloc::format;
 
 /*
 #[panic_handler]
@@ -134,6 +136,20 @@ fn main() -> ! {
 
     display.clear(Rgb565::BLUE).unwrap();
 
+
+
+    let mut adc2_config = AdcConfig::new();
+    let mut xm = adc2_config.enable_pin(peripherals.GPIO4, Attenuation::_0dB);
+    let mut ym = adc2_config.enable_pin(peripherals.GPIO15, Attenuation::_0dB);
+    let mut adc2 = Adc::new(peripherals.ADC2, adc2_config);
+
+    let mut xp = Output::new(peripherals.GPIO2, Level::Low, config);
+    let mut yp = Output::new(peripherals.GPIO22, Level::High, config);
+
+    xp.set_low();
+    yp.set_high();
+
+
     let mut i = 0;
     loop {
         /*
@@ -155,39 +171,25 @@ fn main() -> ! {
                     });
                 }
 
-                //ctx.set_theme(egui::Theme::Light);
+                let xm_value: u16 = nb::block!(adc2.read_oneshot(&mut xm)).unwrap();
 
-                //ctx.set_zoom_factor(0.5 / pixels_per_point);
+                let ym_value: u16 = nb::block!(adc2.read_oneshot(&mut ym)).unwrap();
+
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    //ui.label(egui::epaint::COMMON_CHARS);
-                    //let off = egui::Vec2::new(((i * 2) % 50) as f32 + 25.0, 25.0);
-                    //let rect = egui::Rect::from_two_pos(egui::Pos2::ZERO + off, egui::Pos2::new(1024.0, 32.0) + off);
-                    //ui.painter().rect_filled(rect, 0.0, egui::Color32::MAGENTA);
-                    /*
-                    let uv = egui::Rect::from_two_pos(egui::Pos2::ZERO, egui::Pos2::new(1.0, 1.0));
-                    ui.painter().image(
-                        egui::TextureId::Managed(0),
-                        rect, 
-                        uv,
-                        egui::Color32::WHITE
-                    );
-                    */
-
-                    /*
-                    ui.painter().text(
-                        egui::Pos2::new(50.0, 50.0),
-                        egui::Align2::CENTER_CENTER,
-                        "Hello, world!",
-                        Default::default(),
-                        egui::Color32::GREEN,
-                    );
-                    */
-
-                    let rt = egui::RichText::new("Rich text button").color(egui::Color32::WHITE).font(Default::default());
+                    let rt = egui::RichText::new(format!("XM: {xm_value}")).color(egui::Color32::WHITE).font(Default::default());
                     let button = egui::Button::new(rt).fill(egui::Color32::RED);
                     if button.ui(ui).clicked() {
                     }
-                    //ui.label("Hello, ESP32 world!");
+
+                    let rt = egui::RichText::new(format!("YM: {ym_value}")).color(egui::Color32::WHITE).font(Default::default());
+                    let button = egui::Button::new(rt).fill(egui::Color32::RED);
+                    if button.ui(ui).clicked() {
+                    }
+
+                    let rt = egui::RichText::new(format!("I: {i}")).color(egui::Color32::WHITE).font(Default::default());
+                    let button = egui::Button::new(rt).fill(egui::Color32::RED);
+                    if button.ui(ui).clicked() {
+                    }
                 });
             },
             &mut color,

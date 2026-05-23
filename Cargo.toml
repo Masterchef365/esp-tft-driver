@@ -35,6 +35,7 @@ esp-backtrace = { version = "0.19.0", features = ["esp32", "println", "panic-han
 #esp-backtrace = { version = "0.19.0", features = ["esp32", "println"] }
 
 #fearless_simd = { version = "0.3.0", default-features = false }
+nb = "1.1.0"
 
 [patch.crates-io]
 #egui = { git = "https://github.com/Masterchef365/egui.git", branch = "no_std" }

@@ -1156,6 +1156,7 @@ dependencies = [
  "esp-println",
  "euc",
  "ili9341",
+ "nb 1.1.0",
  "serde",
 ]
 
