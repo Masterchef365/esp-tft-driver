@@ -160,7 +160,7 @@ fn main() -> ! {
         }
         */
 
-        let tile_size = 50;
+        let tile_size = 240;
 
         let color = gui.update(
             raw_input.clone(),
@@ -196,7 +196,7 @@ fn main() -> ! {
                 });
             },
             |x, y, ex, ey, buf| {
-                display.draw_raw_iter(x as _, y as _, ex as _, ey as _, buf.raw().iter().map(|c| c.bits));
+                display.draw_raw_iter(x as _, y as _, (ex - 1) as _, (ey - 1) as _, buf.raw().iter().map(|c| c.bits));
             },
         );
 
