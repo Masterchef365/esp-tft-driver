@@ -132,7 +132,7 @@ fn main() -> ! {
 
     let [w, h] = [320, 240];
     //let [w, h] = [2*320/3, 2*240/3];
-    let mut color = Buffer2d::fill([w, h], Algebra565::BLACK);
+    //let mut color = Buffer2d::fill([w, h], Algebra565::BLACK);
 
     display.clear(Rgb565::BLUE).unwrap();
 
@@ -160,9 +160,12 @@ fn main() -> ! {
         }
         */
 
-        gui.update(
+        let tile_size = 50;
+
+        let color = gui.update(
             raw_input.clone(),
             [w, h],
+            tile_size,
             |ctx| {
                 if i == 0 {
                     ctx.fonts(|fonts| {
@@ -192,7 +195,9 @@ fn main() -> ! {
                     }
                 });
             },
-            &mut color,
+            |x, y, ex, ey, buf| {
+                display.draw_raw_iter(x as _, y as _, ex as _, ey as _, buf.raw().iter().map(|c| c.bits));
+            },
         );
 
         //if i % 100 == 0 {
@@ -200,7 +205,7 @@ fn main() -> ! {
         //}
         i += 1;
 
-        display.draw_raw_iter(0, 0, w as _, h as _, color.raw().iter().map(|c| c.bits));
+        //display.draw_raw_iter(0, 0, w as _, h as _, color.raw().iter().map(|c| c.bits));
         /*
         display.draw_raw_iter(
             0,
