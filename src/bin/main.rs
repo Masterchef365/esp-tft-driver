@@ -27,11 +27,12 @@ use ili9341::Orientation;
 
 use euc::{Buffer2d, Empty, Pipeline, TriangleList};
 
+use alloc::format;
+use egui::Widget;
 use egui_euc::Algebra565;
 use esp_backtrace as _;
-use egui::Widget;
 use esp_hal::analog::adc::*;
-use alloc::format;
+use esp_hal::Blocking;
 
 /*
 #[panic_handler]
@@ -126,7 +127,7 @@ fn main() -> ! {
 
     /*
     gui.egui_ctx.run(raw_input.clone(), |ctx| {
-        
+
     });
     */
 
@@ -136,19 +137,21 @@ fn main() -> ! {
 
     display.clear(Rgb565::BLUE).unwrap();
 
-
-
     let mut adc2_config = AdcConfig::new();
     let mut xm = adc2_config.enable_pin(peripherals.GPIO4, Attenuation::_0dB);
     let mut ym = adc2_config.enable_pin(peripherals.GPIO15, Attenuation::_0dB);
-    let mut adc2 = Adc::new(peripherals.ADC2, adc2_config);
+    let mut adc = Adc::new(peripherals.ADC2, adc2_config);
 
     let mut xp = Output::new(peripherals.GPIO2, Level::Low, config);
     let mut yp = Output::new(peripherals.GPIO22, Level::High, config);
 
-    xp.set_low();
-    yp.set_high();
-
+    let mut touch = TouchController {
+        adc,
+        xm,
+        ym,
+        xp,
+        yp,
+    };
 
     let mut i = 0;
     loop {
@@ -169,39 +172,35 @@ fn main() -> ! {
             |ctx| {
                 if i == 0 {
                     ctx.fonts(|fonts| {
-                        let font_impl = fonts.lock().fonts.font(&Default::default()).fonts[0].clone();
+                        let font_impl =
+                            fonts.lock().fonts.font(&Default::default()).fonts[0].clone();
                         *font_impl.glyph_info_cache.write() = egui::epaint::load_glyphs();
                     });
                 }
 
-                let xm_value: u16 = nb::block!(adc2.read_oneshot(&mut xm)).unwrap();
-
-                let ym_value: u16 = nb::block!(adc2.read_oneshot(&mut ym)).unwrap();
-
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    let rt = egui::RichText::new(format!("XM: {xm_value}")).color(egui::Color32::WHITE).font(Default::default());
-                    let button = egui::Button::new(rt).fill(egui::Color32::RED);
-                    if button.ui(ui).clicked() {
-                    }
+                    let [x, y, z] = touch.get_point();
 
-                    let rt = egui::RichText::new(format!("YM: {ym_value}")).color(egui::Color32::WHITE).font(Default::default());
+                    let rt = egui::RichText::new(format!("XYZ: {x} {y} {z}"))
+                        .color(egui::Color32::WHITE)
+                        .font(Default::default());
                     let button = egui::Button::new(rt).fill(egui::Color32::RED);
-                    if button.ui(ui).clicked() {
-                    }
-
-                    let rt = egui::RichText::new(format!("I: {i}")).color(egui::Color32::WHITE).font(Default::default());
-                    let button = egui::Button::new(rt).fill(egui::Color32::RED);
-                    if button.ui(ui).clicked() {
-                    }
+                    if button.ui(ui).clicked() {}
                 });
             },
             |x, y, ex, ey, buf| {
-                display.draw_raw_iter(x as _, y as _, (ex - 1) as _, (ey - 1) as _, buf.raw().iter().map(|c| c.bits));
+                display.draw_raw_iter(
+                    x as _,
+                    y as _,
+                    (ex - 1) as _,
+                    (ey - 1) as _,
+                    buf.raw().iter().map(|c| c.bits),
+                );
             },
         );
 
         //if i % 100 == 0 {
-            esp_println::println!("LOOP {i}:\n{}", esp_alloc::HEAP.stats());
+        esp_println::println!("LOOP {i}:\n{}", esp_alloc::HEAP.stats());
         //}
         i += 1;
 
@@ -222,5 +221,27 @@ fn main() -> ! {
 
         //let delay_start = Instant::now();
         //while delay_start.elapsed() < Duration::from_millis(500) {}
+    }
+}
+
+pub struct TouchController<XM, YM, ADC> {
+    pub adc: Adc<'static, ADC, Blocking>,
+    pub xp: Output<'static>,
+    pub xm: AdcPin<XM, ADC>,
+    pub yp: Output<'static>,
+    pub ym: AdcPin<YM, ADC>,
+}
+
+impl<XM, YM, ADC> TouchController<XM, YM, ADC>
+where
+    ADC: RegisterAccess + 'static,
+    XM: AdcChannel,
+    YM: AdcChannel,
+{
+    pub fn get_point(&mut self) -> [i32; 3] {
+        let xm_value: u16 = nb::block!(self.adc.read_oneshot(&mut self.xm)).unwrap();
+        let ym_value: u16 = nb::block!(self.adc.read_oneshot(&mut self.ym)).unwrap();
+
+        [xm_value as _, ym_value as _, 0]
     }
 }
