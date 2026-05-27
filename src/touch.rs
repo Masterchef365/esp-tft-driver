@@ -121,7 +121,7 @@ pub fn get_touch_point() -> TSPoint {
 
         let _xm = Output::new(unsafe { XM::steal() }, Level::Low, Default::default());
 
-        esp_hal::delay::Delay::new().delay_micros(20_000);
+        esp_hal::delay::Delay::new().delay_micros(2_000);
 
         for i in 0..NUMSAMPLES {
             x_samples[i] = average_adc_read(&mut adc, &mut yp);
@@ -162,7 +162,7 @@ pub fn get_touch_point() -> TSPoint {
 
         let _ym = Output::new(unsafe { YM::steal() }, Level::Low, Default::default());
 
-        esp_hal::delay::Delay::new().delay_micros(20_000);
+        esp_hal::delay::Delay::new().delay_micros(2_000);
 
         for i in 0..NUMSAMPLES {
             y_samples[i] = average_adc_read(&mut adc, &mut xm);
@@ -204,7 +204,7 @@ pub fn get_touch_point() -> TSPoint {
 
         let mut adc = Adc::new(unsafe { ADC::steal() }, adc_config);
 
-        esp_hal::delay::Delay::new().delay_micros(20_000);
+        esp_hal::delay::Delay::new().delay_micros(2_000);
 
         let z1: u16 = block!(adc.read_oneshot(&mut xm)).unwrap();
 

@@ -126,51 +126,69 @@ fn main() -> ! {
 
     esp_alloc::heap_allocator!(size: 170 * 1024);
 
-    let [w, h] = [320, 240];
+    //let [w, h] = [320, 240];
+    let [w, h] = [200, 200];
 
     display.clear(Rgb565::BLUE).unwrap();
 
     let mut toucher = TouchController::new();
 
+    let mut boolean = false;
+
+    let mut color = egui::Color32::RED;
+
+    gui.egui_ctx.set_theme(egui::Theme::Light);
+    display.clear(Rgb565::BLACK).unwrap();
+
+    let mut frame = 0;
     let mut i = 0;
     loop {
         let mut raw_input = egui::RawInput::default();
 
         toucher.next(&mut raw_input.events);
 
-        let tile_size = 240;
+        let tile_size = 200;
 
         let color = gui.update(
             raw_input.clone(),
             [w, h],
             tile_size,
             |ctx| {
-                if i == 0 {
+                if frame == 0 {
                     ctx.fonts(|fonts| {
                         let font_impl =
                             fonts.lock().fonts.font(&Default::default()).fonts[0].clone();
                         *font_impl.glyph_info_cache.write() = egui::epaint::load_glyphs();
                     });
+                    frame = 1;
                 }
 
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    if let Some(pos) = ui.ctx().pointer_hover_pos() {
-                        esp_println::println!("{pos:?}");
-                        let rect = egui::Rect::from_center_size(pos, egui::Vec2::splat(25.0));
-                        ui.painter().rect_filled(
-                            rect,
-                            0.0,
-                            egui::Color32::MAGENTA,
-                        );
-                    }
+                    ui.label(egui::RichText::new(format!("Hello, egui!")).font(Default::default()));
+                    //egui::widgets::global_theme_preference_buttons(ui);
 
-                    let rt = egui::RichText::new(format!("I {i}"))
-                        .color(egui::Color32::WHITE)
+                    ui.color_edit_button_srgba(&mut color);
+
+                    let rt = egui::RichText::new(format!("# of clicks: {i}"))
                         .font(Default::default());
-                    let button = egui::Button::new(rt).fill(egui::Color32::RED);
+                    let button = egui::Button::new(rt);
                     if ui.add_sized(egui::Vec2::new(100.0, 50.0), button).clicked() {
                         i += 1;
                     }
+
+                    ui.label(egui::RichText::new(format!("The ESP32 rules!")).color(egui::Color32::BLUE).font(Default::default()));
+
+                    if let Some(pos) = ui.ctx().pointer_hover_pos() {
+                        esp_println::println!("{pos:?}");
+                        let rect = egui::Rect::from_center_size(pos, egui::Vec2::splat(5.0));
+                        ui.painter().rect_filled(
+                            rect,
+                            0.0,
+                            egui::Color32::WHITE,
+                        );
+                    }
+
+
                 });
             },
             |x, y, ex, ey, buf| {
