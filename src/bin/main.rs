@@ -35,6 +35,7 @@ use esp_hal::analog::adc::*;
 use esp_hal::Blocking;
 
 use egui_esp32::touch::*;
+use alloc::vec::Vec;
 
 /*
 #[panic_handler]
@@ -135,10 +136,7 @@ fn main() -> ! {
     loop {
         let mut raw_input = egui::RawInput::default();
 
-        if let Some(event) = toucher.next() {
-            esp_println::println!("{event:?}");
-            raw_input.events.push(event);
-        }
+        toucher.next(&mut raw_input.events);
 
         let tile_size = 240;
 
@@ -201,7 +199,7 @@ impl TouchController {
         }
     }
 
-    pub fn next(&mut self) -> Option<egui::Event> {
+    pub fn next(&mut self, events: &mut Vec<egui::Event>) {
         let point = get_touch_point().to_pixel_point();
         let mut phase = egui::TouchPhase::Move;
 
@@ -219,31 +217,32 @@ impl TouchController {
 
         self.last_touch_point = point;
 
-        ret_point.map(|(x, y)|{
+        if let Some((x, y)) = ret_point {
             let pos = egui::Pos2::new(x as _, y as _);
             match phase {
                 egui::TouchPhase::Start => {
-                    egui::Event::PointerButton {
+                    events.push(egui::Event::PointerButton {
                         pos,
                         button: egui::PointerButton::Primary,
                         pressed: true,
                         modifiers: Default::default(),
-                    }
+                    });
                 },
                 egui::TouchPhase::End => {
-                    egui::Event::PointerButton {
+                    events.push(egui::Event::PointerButton {
                         pos,
                         button: egui::PointerButton::Primary,
                         pressed: false,
                         modifiers: Default::default(),
-                    }
+                    });
+                    events.push(egui::Event::PointerGone);
                 }
                 _ => {
-                    egui::Event::PointerMoved(pos)
+                    events.push(egui::Event::PointerMoved(pos));
                 },
 
             }
-        })
+        }
 
         /*
         ret_point.map(|(x, y)| egui::Event::Touch {
