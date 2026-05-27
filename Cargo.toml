@@ -1,6 +1,6 @@
 [package]
 edition      = "2024"
-name         = "my-first-esp-rust"
+name         = "egui-esp32"
 rust-version = "1.88"
 version      = "0.1.0"
 

@@ -34,6 +34,8 @@ use esp_backtrace as _;
 use esp_hal::analog::adc::*;
 use esp_hal::Blocking;
 
+use egui_esp32::touch::*;
+
 /*
 #[panic_handler]
 fn panic(info: &core::panic::PanicInfo) -> ! {
@@ -123,45 +125,20 @@ fn main() -> ! {
 
     esp_alloc::heap_allocator!(size: 170 * 1024);
 
-    let mut raw_input = egui::RawInput::default();
-
-    /*
-    gui.egui_ctx.run(raw_input.clone(), |ctx| {
-
-    });
-    */
-
     let [w, h] = [320, 240];
-    //let [w, h] = [2*320/3, 2*240/3];
-    //let mut color = Buffer2d::fill([w, h], Algebra565::BLACK);
 
     display.clear(Rgb565::BLUE).unwrap();
 
-    let mut adc2_config = AdcConfig::new();
-    let mut xm = adc2_config.enable_pin(peripherals.GPIO4, Attenuation::_0dB);
-    let mut ym = adc2_config.enable_pin(peripherals.GPIO15, Attenuation::_0dB);
-    let mut adc = Adc::new(peripherals.ADC2, adc2_config);
-
-    let mut xp = Output::new(peripherals.GPIO2, Level::Low, config);
-    let mut yp = Output::new(peripherals.GPIO22, Level::High, config);
-
-    let mut touch = TouchController {
-        adc,
-        xm,
-        ym,
-        xp,
-        yp,
-    };
+    let mut toucher = TouchController::new();
 
     let mut i = 0;
     loop {
-        /*
-        let pixels_per_point = 0.05;
+        let mut raw_input = egui::RawInput::default();
 
-        for (_, vp) in raw_input.viewports.iter_mut() {
-            vp.native_pixels_per_point = Some(pixels_per_point);
+        if let Some(event) = toucher.next() {
+            esp_println::println!("{event:?}");
+            raw_input.events.push(event);
         }
-        */
 
         let tile_size = 240;
 
@@ -179,13 +156,23 @@ fn main() -> ! {
                 }
 
                 egui::CentralPanel::default().show(ctx, |ui| {
-                    let [x, y, z] = touch.get_point();
+                    if let Some(pos) = ui.ctx().pointer_hover_pos() {
+                        esp_println::println!("{pos:?}");
+                        let rect = egui::Rect::from_center_size(pos, egui::Vec2::splat(25.0));
+                        ui.painter().rect_filled(
+                            rect,
+                            0.0,
+                            egui::Color32::MAGENTA,
+                        );
+                    }
 
-                    let rt = egui::RichText::new(format!("XYZ: {x} {y} {z}"))
+                    let rt = egui::RichText::new(format!("I {i}"))
                         .color(egui::Color32::WHITE)
                         .font(Default::default());
                     let button = egui::Button::new(rt).fill(egui::Color32::RED);
-                    if button.ui(ui).clicked() {}
+                    if ui.add_sized(egui::Vec2::new(100.0, 50.0), button).clicked() {
+                        i += 1;
+                    }
                 });
             },
             |x, y, ex, ey, buf| {
@@ -198,50 +185,75 @@ fn main() -> ! {
                 );
             },
         );
+    }
+}
 
-        //if i % 100 == 0 {
-        esp_println::println!("LOOP {i}:\n{}", esp_alloc::HEAP.stats());
-        //}
-        i += 1;
+struct TouchController {
+    last_touch_point: Option<(usize, usize)>,
+    touch_id: u64,
+}
 
-        //display.draw_raw_iter(0, 0, w as _, h as _, color.raw().iter().map(|c| c.bits));
+impl TouchController {
+    pub fn new() -> Self {
+        Self {
+            last_touch_point: None,
+            touch_id: 0,
+        }
+    }
+
+    pub fn next(&mut self) -> Option<egui::Event> {
+        let point = get_touch_point().to_pixel_point();
+        let mut phase = egui::TouchPhase::Move;
+
+        let mut ret_point = point;
+
+        if let Some(last) = self.last_touch_point {
+            if point.is_none() {
+                ret_point = Some(last);
+                phase = egui::TouchPhase::End;
+            }
+        } else {
+            phase = egui::TouchPhase::Start;
+            self.touch_id += 1;
+        }
+
+        self.last_touch_point = point;
+
+        ret_point.map(|(x, y)|{
+            let pos = egui::Pos2::new(x as _, y as _);
+            match phase {
+                egui::TouchPhase::Start => {
+                    egui::Event::PointerButton {
+                        pos,
+                        button: egui::PointerButton::Primary,
+                        pressed: true,
+                        modifiers: Default::default(),
+                    }
+                },
+                egui::TouchPhase::End => {
+                    egui::Event::PointerButton {
+                        pos,
+                        button: egui::PointerButton::Primary,
+                        pressed: false,
+                        modifiers: Default::default(),
+                    }
+                }
+                _ => {
+                    egui::Event::PointerMoved(pos)
+                },
+
+            }
+        })
+
         /*
-        display.draw_raw_iter(
-            0,
-            0,
-            (w * 2) as _,
-            (h * 2) as _,
-            color
-                .raw()
-                .chunks(w)
-                .map(|chunk| chunk.iter().chain(chunk).map(|c| [c.bits; 2]).flatten())
-                .flatten(),
-        );
+        ret_point.map(|(x, y)| egui::Event::Touch {
+            device_id: egui::TouchDeviceId(0),
+            id: egui::TouchId(self.touch_id),
+            phase,
+            pos: egui::Pos2::new(x as _, y as _),
+            force: None,
+        })
         */
-
-        //let delay_start = Instant::now();
-        //while delay_start.elapsed() < Duration::from_millis(500) {}
     }
 }
 
-pub struct TouchController<XM, YM, ADC> {
-    pub adc: Adc<'static, ADC, Blocking>,
-    pub xp: Output<'static>,
-    pub xm: AdcPin<XM, ADC>,
-    pub yp: Output<'static>,
-    pub ym: AdcPin<YM, ADC>,
-}
-
-impl<XM, YM, ADC> TouchController<XM, YM, ADC>
-where
-    ADC: RegisterAccess + 'static,
-    XM: AdcChannel,
-    YM: AdcChannel,
-{
-    pub fn get_point(&mut self) -> [i32; 3] {
-        let xm_value: u16 = nb::block!(self.adc.read_oneshot(&mut self.xm)).unwrap();
-        let ym_value: u16 = nb::block!(self.adc.read_oneshot(&mut self.ym)).unwrap();
-
-        [xm_value as _, ym_value as _, 0]
-    }
-}

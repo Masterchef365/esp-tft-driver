@@ -350,6 +350,27 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui-esp32"
+version = "0.1.0"
+dependencies = [
+ "critical-section",
+ "display-interface-spi",
+ "egui",
+ "egui-euc",
+ "embedded-graphics-core",
+ "embedded-hal-bus",
+ "esp-alloc",
+ "esp-backtrace",
+ "esp-bootloader-esp-idf",
+ "esp-hal",
+ "esp-println",
+ "euc",
+ "ili9341",
+ "nb 1.1.0",
+ "serde",
+]
+
+[[package]]
 name = "egui-euc"
 version = "0.1.0"
 dependencies = [
@@ -1138,27 +1159,6 @@ name = "micromath"
 version = "2.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c3c8dda44ff03a2f238717214da50f65d5a53b45cd213a7370424ffdb6fae815"
-
-[[package]]
-name = "my-first-esp-rust"
-version = "0.1.0"
-dependencies = [
- "critical-section",
- "display-interface-spi",
- "egui",
- "egui-euc",
- "embedded-graphics-core",
- "embedded-hal-bus",
- "esp-alloc",
- "esp-backtrace",
- "esp-bootloader-esp-idf",
- "esp-hal",
- "esp-println",
- "euc",
- "ili9341",
- "nb 1.1.0",
- "serde",
-]
 
 [[package]]
 name = "nb"
